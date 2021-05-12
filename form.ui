@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>200</width>
-    <height>278</height>
+    <height>287</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -169,7 +169,9 @@
      <addaction name="separator"/>
     </widget>
     <addaction name="menuGrid_Size"/>
+    <addaction name="separator"/>
     <addaction name="actionShow_Tutorial"/>
+    <addaction name="actionAsk_to_play_again_dialog"/>
    </widget>
    <addaction name="menuSettings"/>
   </widget>
@@ -187,7 +189,15 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Show Tutorial</string>
+    <string>Show Tutorial On startup</string>
+   </property>
+  </action>
+  <action name="actionAsk_to_play_again_dialog">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Quick Play</string>
    </property>
   </action>
  </widget>

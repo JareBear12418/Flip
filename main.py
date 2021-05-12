@@ -18,33 +18,58 @@ class Ui(QMainWindow):
         super(Ui, self).__init__()
         uic.loadUi('form.ui', self)
         self.setStyleSheet(open("style.qss", "r").read())
-        
-        if JSON_CONTENTS['settings'][0]['ShowTut'][0] == True:  QMessageBox.information(self, 'How to Play', 'Make all the boxes blue to win!', QMessageBox.Ok, QMessageBox.Ok)
+
+        if JSON_CONTENTS['settings'][0]['ShowTut'][0] == 'True':  
+            self.actionShow_Tutorial.setChecked(True)
+            QMessageBox.information(self, 'How to Play', 'Make all the boxes blue to win!', QMessageBox.Ok, QMessageBox.Ok)
+        else: self.actionShow_Tutorial.setChecked(False)
+
+        self.actionAsk_to_play_again_dialog.setChecked(
+            JSON_CONTENTS['settings'][0]['Quick Play'][0] == 'True'
+        )
+        self.actionAsk_to_play_again_dialog.triggered.connect(self.togglePlayAgainDialog)
+
+        self.show_play_again_dialog = JSON_CONTENTS['settings'][0]['Quick Play'][0]
+
+        self.actionShow_Tutorial.triggered.connect(self.toggleTutorial)
+
         self.grid_size_x: int = 4
         self.grid_size_y: int = 4
         self.button_size: int = 128
         self.font_size: int = 65
         self.use_images: bool = True
-        
+
         self.saved_time: int = 0
         self.current_moves: int = 0
 
         self.shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
         self.shortcut.activated.connect(self.revert_move)
-        
+
         self.curr_time: QTime = QtCore.QTime(00,00,00)
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.time)
-        
-        
-        
+
+        self.pressed_first_button = False
+
         # self.timer.start(1000)
 
         self.generate_board()
         self.showMaximized()
         self.show()
         self.update_grid_sizes()
+    
+    def togglePlayAgainDialog(self):
+        JSON_CONTENTS['settings'][0]['Quick Play'][0] = str(self.actionAsk_to_play_again_dialog.isChecked())
+        with open(JSON_FILE, 'w') as f:
+            json.dump(JSON_CONTENTS, f, indent=4)
+        
+        self.show_play_again_dialog = self.actionAsk_to_play_again_dialog.isChecked()
+            
+    def toggleTutorial(self):
+        JSON_CONTENTS['settings'][0]['ShowTut'][0] = str(self.actionShow_Tutorial.isChecked())
+        with open(JSON_FILE, 'w') as f:
+            json.dump(JSON_CONTENTS, f, indent=4)
     
     def update_grid_sizes(self):
         self.menuGrid_Size.clear()
@@ -58,7 +83,7 @@ class Ui(QMainWindow):
                 grid.setStatusTip(f'Record Time: {str(datetime.timedelta(seconds=record_time))}    Record Moves: {record_moves}')
             except ValueError: 
                 grid.setStatusTip(f'Record Time: Undfined    Record Moves: Undfined')
-            grid.triggered.connect(partial(self.set_quick_grid_size, x, y))
+            grid.triggered.connect(partial(self.set_quick_grid_size, y, x))
             self.menuGrid_Size.addAction(grid)
 
         self.setGridSize = QAction("Custom")
@@ -86,22 +111,28 @@ class Ui(QMainWindow):
         
     def update_time_label(self):
         try:
-            record_time =  int(JSON_CONTENTS['records'][0][f'{self.grid_size_x}x{self.grid_size_y}'][0]['Time'])
-            record_moves =  int(JSON_CONTENTS['records'][0][f'{self.grid_size_x}x{self.grid_size_y}'][0]['Moves'])
-            self.timerLabel.setText(f'Grid: {self.grid_size_x}x{self.grid_size_y}\nCurrent time: {self.curr_time.hour():02d}:{self.curr_time.minute():02d}:{self.curr_time.second():02d}    Moves: {self.current_moves}\nRecord Time: {str(datetime.timedelta(seconds=record_time))}    Record Moves: {record_moves}')
+            record_time =  int(JSON_CONTENTS['records'][0][f'{self.grid_size_y}x{self.grid_size_x}'][0]['Time'])
+            record_moves =  int(JSON_CONTENTS['records'][0][f'{self.grid_size_y}x{self.grid_size_x}'][0]['Moves'])
+            self.timerLabel.setText(f'Grid: {self.grid_size_y}x{self.grid_size_x}\nCurrent time: {self.curr_time.hour():02d}:{self.curr_time.minute():02d}:{self.curr_time.second():02d}    Moves: {self.current_moves}\nRecord Time: {str(datetime.timedelta(seconds=record_time))}    Record Moves: {record_moves}')
         except KeyError:
-            JSON_CONTENTS["records"][0].update({str(self.grid_size_x) + "x" + str(self.grid_size_y):[{"Moves": "Undfined", "Time": "Undefined"}]})
+            JSON_CONTENTS["records"][0].update({str(self.grid_size_y) + "x" + str(self.grid_size_x):[{"Moves": "Undfined", "Time": "Undefined"}]})
             with open(JSON_FILE, 'w') as f:
                 json.dump(JSON_CONTENTS, f, indent=4)
         except ValueError:
-            self.timerLabel.setText(f'Grid: {self.grid_size_x}x{self.grid_size_y}\nCurrent time: {self.curr_time.hour():02d}:{self.curr_time.minute():02d}:{self.curr_time.second():02d}    Moves: {self.current_moves}')
+            self.timerLabel.setText(f'Grid: {self.grid_size_y}x{self.grid_size_x}\nCurrent time: {self.curr_time.hour():02d}:{self.curr_time.minute():02d}:{self.curr_time.second():02d}    Moves: {self.current_moves}')
             
     def generate_board(self):
+        self.pressed_first_button = False
+
         self.clearLayout(self.gridLayout)
         screen = app.primaryScreen()
         height = screen.availableGeometry().height()
-        self.button_size = height//self.grid_size_x//1.5
-        self.font_size = self.button_size // 1.5
+        width = screen.availableGeometry().width()
+        max_height = height//self.grid_size_y//2
+        max_width = width//self.grid_size_x//2
+        self.button_size = min(max_height, max_width)
+        
+        self.font_size = self.button_size // 2
         self.move_history = []
         self.grid_run_time = [[None for y in range(self.grid_size_y)] for x in range(self.grid_size_x)]
         self.button_array_list = [[None for y in range(self.grid_size_y)] for x in range(self.grid_size_x)]
@@ -150,12 +181,14 @@ class Ui(QMainWindow):
         for x in range(self.grid_size_x):
             for y in range(self.grid_size_y):
                 is_checked = random.random() < .5
-                if is_checked: self.button_clicked(x, y)
-        self.timer.start(1000)
+                if is_checked: self.button_clicked(x, y, automated_press = True)
+        
+        
         self.curr_time = QtCore.QTime(00,00,00)
         self.current_moves = 0
         self.saved_time = 0
-        self.time()
+        self.timer.stop()
+        self.update_time_label()
         
     def clearLayout(self, layout):
         if layout is not None:
@@ -174,8 +207,8 @@ class Ui(QMainWindow):
         except IndexError: self.check_win()
     
     @pyqtSlot()
-    def button_clicked(self, x, y, save_move = True):
-        self.current_moves += 1
+    def button_clicked(self, x, y, save_move = True, automated_press = False):
+        if not automated_press: self.current_moves += 1
         self.update_time_label()
         if save_move: self.move_history.append([x,y])
         # center
@@ -219,8 +252,15 @@ class Ui(QMainWindow):
             else:
                 self.grid_run_time[x+1][y] = True
                 self.button_array_list[x+1][y].setChecked(True)
+
         self.check_win()
 
+        if not automated_press and not self.pressed_first_button and self.current_moves == 1:
+            self.curr_time = QtCore.QTime(00,00,00)
+            self.timer.start(1000)
+            self.time()
+            self.pressed_first_button = True
+            
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_N: 
             self.generate_board()
@@ -233,26 +273,30 @@ class Ui(QMainWindow):
         count = 0
         for row in self.grid_run_time:
             for col in row:
-                if col == True:
-                    count += 1
+                if col == True: count += 1
         if count == self.grid_size_x*self.grid_size_y:
             self.save_scores()
+            self.curr_time = QtCore.QTime(00,00,00)
+            self.current_moves = 0
+            self.saved_time = 0
             self.timer.stop()
-            reply = QMessageBox.information(self, 'You Win!', 'YOU WIN!\nDo you want to play again?', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-            if reply == QMessageBox.Yes:
-                self.generate_board()
-            else:
-                self.close()
+            self.update_time_label()
+            if self.show_play_again_dialog == False:
+                reply = QMessageBox.information(self, 'You Win!', 'YOU WIN!\nDo you want to play again?', QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                if reply == QMessageBox.Yes: self.generate_board()
+                else: self.close()
+            else: self.generate_board()
+            
     def save_scores(self):
         try:
-            record_time =  int(JSON_CONTENTS['records'][0][f'{self.grid_size_x}x{self.grid_size_y}'][0]['Time'])
-            record_moves =  int(JSON_CONTENTS['records'][0][f'{self.grid_size_x}x{self.grid_size_y}'][0]['Moves'])
+            record_time =  int(JSON_CONTENTS['records'][0][f'{self.grid_size_y}x{self.grid_size_x}'][0]['Time'])
+            record_moves =  int(JSON_CONTENTS['records'][0][f'{self.grid_size_y}x{self.grid_size_x}'][0]['Moves'])
         except ValueError:
             record_time = self.saved_time
             record_moves = self.current_moves
         if self.saved_time <= record_time and self.current_moves <= record_moves:
-            JSON_CONTENTS['records'][0][f'{self.grid_size_x}x{self.grid_size_y}'][0]['Time'] = self.saved_time
-            JSON_CONTENTS['records'][0][f'{self.grid_size_x}x{self.grid_size_y}'][0]['Moves'] = self.current_moves
+            JSON_CONTENTS['records'][0][f'{self.grid_size_y}x{self.grid_size_x}'][0]['Time'] = self.saved_time
+            JSON_CONTENTS['records'][0][f'{self.grid_size_y}x{self.grid_size_x}'][0]['Moves'] = self.current_moves
             with open(JSON_FILE, 'w') as f:
                 json.dump(JSON_CONTENTS, f, indent=4)
 

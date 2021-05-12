@@ -3,6 +3,9 @@
         {
             "ShowTut": [
                 "False"
+            ],
+            "Quick Play": [
+                "True"
             ]
         }
     ],
@@ -48,6 +51,30 @@
                 {
                     "Moves": "Undfined",
                     "Time": "Undefined"
+                }
+            ],
+            "1x7": [
+                {
+                    "Moves": 7,
+                    "Time": 1
+                }
+            ],
+            "7x1": [
+                {
+                    "Moves": 1,
+                    "Time": 7
+                }
+            ],
+            "2x1": [
+                {
+                    "Moves": 1,
+                    "Time": 1
+                }
+            ],
+            "1x2": [
+                {
+                    "Moves": 2,
+                    "Time": 1
                 }
             ]
         }
