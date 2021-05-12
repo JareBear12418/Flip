@@ -1,0 +1,55 @@
+{
+    "settings": [
+        {
+            "ShowTut": [
+                "False"
+            ]
+        }
+    ],
+    "records": [
+        {
+            "4x4": [
+                {
+                    "Moves": 1,
+                    "Time": 1
+                }
+            ],
+            "5x5": [
+                {
+                    "Moves": 50,
+                    "Time": 45
+                }
+            ],
+            "7x7": [
+                {
+                    "Moves": "Undfined",
+                    "Time": "Undefined"
+                }
+            ],
+            "2x6": [
+                {
+                    "Moves": 23,
+                    "Time": 30
+                }
+            ],
+            "6x2": [
+                {
+                    "Moves": "Undfined",
+                    "Time": "Undefined"
+                }
+            ],
+            "3x3": [
+                {
+                    "Moves": 1,
+                    "Time": 1
+                }
+            ],
+            "10x10": [
+                {
+                    "Moves": "Undfined",
+                    "Time": "Undefined"
+                }
+            ]
+        }
+    ]
+}
