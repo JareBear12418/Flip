@@ -20,6 +20,7 @@ class Ui(QMainWindow):
         uic.loadUi("form.ui", self)
         self.setStyleSheet(open("style.qss", "r").read())
         self.setWindowTitle("Flip")
+        self.setWindowIcon(QIcon("icon.png"))
         if JSON_CONTENTS["settings"][0]["ShowTut"][0] == "True":
             self.actionShow_Tutorial.setChecked(True)
             QMessageBox.information(
@@ -52,8 +53,8 @@ class Ui(QMainWindow):
         self.saved_time: int = 0
         self.current_moves: int = 0
 
-        self.shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
-        self.shortcut.activated.connect(self.revert_move)
+        # self.shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
+        # self.shortcut.activated.connect(self.revert_move)
 
         self.curr_time: QTime = QtCore.QTime(00, 00, 00)
 
@@ -353,9 +354,9 @@ class Ui(QMainWindow):
             self.pressed_first_button = True
 
     def keyPressEvent(self, event):
-        if event.key() == QtCore.Qt.Key_N:
-            self.generate_board()
-        elif event.key() == QtCore.Qt.Key_Escape:
+        # if event.key() == QtCore.Qt.Key_N:
+        #     self.generate_board()
+        if event.key() == QtCore.Qt.Key_Escape:
             self.close()
         else:
             super().keyPressEvent(event)
@@ -397,9 +398,7 @@ class Ui(QMainWindow):
                 quickest_time_index = 0
                 temp_longest_time_value = 0
                 temp_quickest_time_value = 999999999999999
-                print(self.average_time)
                 for i, time_m in enumerate(self.average_time):
-                    print(str(datetime.timedelta(milliseconds=time_m))[:-3])
                     if temp_longest_time_value < time_m:
                         longest_time_index = i
                         temp_longest_time_value = time_m
@@ -427,7 +426,7 @@ Average Time: {average_time}
 Quickest Time: {quickest_time}
 With {self.average_score[quickest_time_index]} Moves.
 
-Longest Time: {longest_time}
+Slowest Time: {longest_time}
 With {self.average_score[longest_time_index]} Moves.
 
 Total Moves: {int(sum(self.average_score))}
