@@ -38,6 +38,17 @@
      </spacer>
     </item>
     <item>
+     <widget class="QLabel" name="lblGameTime">
+      <property name="text">
+       <string>Game Time:
+00:00:00</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
+    <item>
      <layout class="QHBoxLayout" name="horizontalLayout">
       <property name="spacing">
        <number>0</number>
@@ -172,6 +183,8 @@
     <addaction name="separator"/>
     <addaction name="actionShow_Tutorial"/>
     <addaction name="actionAsk_to_play_again_dialog"/>
+    <addaction name="separator"/>
+    <addaction name="action_Restart"/>
    </widget>
    <addaction name="menuSettings"/>
   </widget>
@@ -198,6 +211,11 @@
    </property>
    <property name="text">
     <string>Quick Play</string>
+   </property>
+  </action>
+  <action name="action_Restart">
+   <property name="text">
+    <string>&amp;Restart (Ctrl+R)</string>
    </property>
   </action>
  </widget>

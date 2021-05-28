@@ -19,7 +19,6 @@ class Ui(QMainWindow):
         super(Ui, self).__init__()
         uic.loadUi("form.ui", self)
         self.setStyleSheet(open("style.qss", "r").read())
-        self.setWindowTitle("Flip")
         self.setWindowIcon(QIcon("icon.png"))
         if JSON_CONTENTS["settings"][0]["ShowTut"][0] == "True":
             self.actionShow_Tutorial.setChecked(True)
@@ -44,6 +43,8 @@ class Ui(QMainWindow):
 
         self.actionShow_Tutorial.triggered.connect(self.toggleTutorial)
 
+        self.action_Restart.triggered.connect(self.restart_game)
+
         self.grid_size_x: int = 4
         self.grid_size_y: int = 4
         self.button_size: int = 128
@@ -51,15 +52,26 @@ class Ui(QMainWindow):
         self.use_images: bool = True
 
         self.saved_time: int = 0
+        self.global_game_time: int = 0
         self.current_moves: int = 0
 
         # self.shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
         # self.shortcut.activated.connect(self.revert_move)
 
+        self.restart_shortcut = QShortcut(QKeySequence("Ctrl+R"), self)
+        self.restart_shortcut.activated.connect(self.restart_game)
+
         self.curr_time: QTime = QtCore.QTime(00, 00, 00)
+        self.game_time: QTime = QtCore.QTime(00, 00, 00)
 
         self.start_time = None
         self.end_time = None
+
+        self.overall_start_time = None
+        self.overall_end_time = None
+
+        self.game_timer = QtCore.QTimer()
+        self.game_timer.timeout.connect(self.update_game_time)
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.time)
@@ -72,11 +84,29 @@ class Ui(QMainWindow):
         self.average_score: list = []
 
         # self.timer.start(1000)
+        self.setWindowTitle(f"Flip {self.currently_played}/{self.game_limit}")
 
         self.generate_board()
         self.showMaximized()
         self.show()
         self.update_grid_sizes()
+
+    def restart_game(self):
+        self.pressed_first_button = False
+        self.average_time.clear()
+        self.average_score.clear()
+        self.curr_time = QtCore.QTime(00, 00, 00)
+        self.game_time = QtCore.QTime(00, 00, 00)
+        self.current_moves = 0
+        self.saved_time = 0
+        self.global_game_time = 0
+        self.lblGameTime.setText(
+            f"Game Time:\n{self.game_time.hour():02d}:{self.game_time.minute():02d}:{self.game_time.second():02d}"
+        )
+        self.timer.stop()
+        self.currently_played: int = 0
+        self.setWindowTitle(f"Flip {self.currently_played}/{self.game_limit}")
+        self.generate_board()
 
     def togglePlayAgainDialog(self):
         JSON_CONTENTS["settings"][0]["Quick Play"][0] = str(
@@ -135,9 +165,18 @@ class Ui(QMainWindow):
             self.generate_board()
         self.update_grid_sizes()
 
+    def update_game_time(self):
+        self.game_time = self.game_time.addSecs(1)
+        self.global_game_time += 1
+        self.lblGameTime.setText(
+            f"Game Time:\n{self.game_time.hour():02d}:{self.game_time.minute():02d}:{self.game_time.second():02d}"
+        )
+
     def time(self):
         self.saved_time += 1
         self.curr_time = self.curr_time.addSecs(1)
+
+        self.game_timer
         self.update_time_label()
 
     def update_time_label(self):
@@ -183,7 +222,6 @@ class Ui(QMainWindow):
         max_height = height // self.grid_size_y // 2
         max_width = width // self.grid_size_x // 2
         self.button_size = min(max_height, max_width)
-
         self.font_size = self.button_size // 2
         self.move_history = []
         self.grid_run_time = [
@@ -266,10 +304,12 @@ class Ui(QMainWindow):
                     self.button_clicked(x, y, automated_press=True)
 
         self.curr_time = QtCore.QTime(00, 00, 00)
-        self.start_time = datetime.datetime.now()
         self.current_moves = 0
         self.saved_time = 0
         self.timer.stop()
+        if self.currently_played == 0:
+            self.overall_start_time = datetime.datetime.now()
+            self.game_timer.start(1000)
         self.update_time_label()
 
     def clearLayout(self, layout):
@@ -348,6 +388,7 @@ class Ui(QMainWindow):
             and not self.pressed_first_button
             and self.current_moves == 1
         ):
+            self.start_time = datetime.datetime.now()
             self.curr_time = QtCore.QTime(00, 00, 00)
             self.timer.start(1000)
             self.time()
@@ -371,9 +412,14 @@ class Ui(QMainWindow):
             self.currently_played += 1
             self.setWindowTitle(f"Flip {self.currently_played}/{self.game_limit}")
             self.end_time = datetime.datetime.now()
+            self.overall_end_time = datetime.datetime.now()
             self.average_score.append(self.current_moves)
+            game_time_diff = self.overall_end_time - self.overall_start_time
             diff = self.end_time - self.start_time
             elapsed_time = int((diff.seconds * 1000) + (diff.microseconds / 1000))
+            game_elapsed_time = int(
+                (game_time_diff.seconds * 1000) + (game_time_diff.microseconds / 1000)
+            )
             self.average_time.append(elapsed_time)
             self.saved_time = elapsed_time
 
@@ -384,6 +430,7 @@ class Ui(QMainWindow):
             self.timer.stop()
             self.update_time_label()
             if self.currently_played == self.game_limit:
+                self.game_timer.stop()
                 average_time = str(
                     datetime.timedelta(
                         milliseconds=sum(self.average_time)
@@ -393,6 +440,9 @@ class Ui(QMainWindow):
 
                 total_time = str(
                     datetime.timedelta(milliseconds=sum(self.average_time))
+                )[:-3]
+                total_game_time = str(
+                    datetime.timedelta(milliseconds=game_elapsed_time)
                 )[:-3]
                 longest_time_index = 0
                 quickest_time_index = 0
@@ -429,8 +479,12 @@ With {self.average_score[quickest_time_index]} Moves.
 Slowest Time: {longest_time}
 With {self.average_score[longest_time_index]} Moves.
 
+Total time for solving {self.game_limit} puzzles: {total_time}
+
+Overall game time: {total_game_time}
 Total Moves: {int(sum(self.average_score))}
-Total Time: {total_time}
+
+Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000), 2)}
 """,
                     QMessageBox.Ok,
                     QMessageBox.Ok,
@@ -438,6 +492,11 @@ Total Time: {total_time}
                 self.average_score.clear()
                 self.average_time.clear()
                 self.currently_played = 0
+                self.global_game_time = 0
+                self.game_time = QtCore.QTime(00, 00, 00)
+                self.lblGameTime.setText(
+                    f"Game Time:\n{self.game_time.hour():02d}:{self.game_time.minute():02d}:{self.game_time.second():02d}"
+                )
 
                 self.setWindowTitle(f"Flip {self.currently_played}/{self.game_limit}")
             if self.show_play_again_dialog == False:
