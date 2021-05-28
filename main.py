@@ -19,7 +19,7 @@ class Ui(QMainWindow):
         super(Ui, self).__init__()
         uic.loadUi("form.ui", self)
         self.setStyleSheet(open("style.qss", "r").read())
-
+        self.setWindowTitle("Flip")
         if JSON_CONTENTS["settings"][0]["ShowTut"][0] == "True":
             self.actionShow_Tutorial.setChecked(True)
             QMessageBox.information(
@@ -66,7 +66,7 @@ class Ui(QMainWindow):
         self.pressed_first_button = False
 
         self.currently_played: int = 0
-        self.game_limit: int = 1
+        self.game_limit: int = 10
         self.average_time: list = []
         self.average_score: list = []
 
@@ -141,7 +141,7 @@ class Ui(QMainWindow):
 
     def update_time_label(self):
         try:
-            record_time = int(
+            record_time = float(
                 JSON_CONTENTS["records"][0][f"{self.grid_size_y}x{self.grid_size_x}"][
                     0
                 ]["Time"]
@@ -151,8 +151,9 @@ class Ui(QMainWindow):
                     0
                 ]["Moves"]
             )
+            # str(datetime.timedelta(milliseconds=sum(self.average_time)))
             self.timerLabel.setText(
-                f"Grid: {self.grid_size_y}x{self.grid_size_x}\nCurrent time: {self.curr_time.hour():02d}:{self.curr_time.minute():02d}:{self.curr_time.second():02d}    Moves: {self.current_moves}\nRecord Time: {str(datetime.timedelta(seconds=record_time))}    Record Moves: {record_moves}"
+                f"Grid: {self.grid_size_y}x{self.grid_size_x}\nCurrent time: {self.curr_time.hour():02d}:{self.curr_time.minute():02d}:{self.curr_time.second():02d}    Moves: {self.current_moves}\nRecord Time: {str(datetime.timedelta(milliseconds=record_time))[:-3]}    Record Moves: {record_moves}"
             )
         except KeyError:
             JSON_CONTENTS["records"][0].update(
@@ -367,11 +368,13 @@ class Ui(QMainWindow):
                     count += 1
         if count == self.grid_size_x * self.grid_size_y:
             self.currently_played += 1
+            self.setWindowTitle(f"Flip {self.currently_played}/{self.game_limit}")
             self.end_time = datetime.datetime.now()
             self.average_score.append(self.current_moves)
             diff = self.end_time - self.start_time
             elapsed_time = int((diff.seconds * 1000) + (diff.microseconds / 1000))
             self.average_time.append(elapsed_time)
+            self.saved_time = elapsed_time
 
             self.save_scores()
             self.curr_time = QtCore.QTime(00, 00, 00)
@@ -385,20 +388,59 @@ class Ui(QMainWindow):
                         milliseconds=sum(self.average_time)
                         / float(len(self.average_time))
                     )
-                )
-                # average_formatted_time = datetime.datetime.strptime(
-                # average_time, "H:%M:%S.%f"
-                # )
+                )[:-3]
+
+                total_time = str(
+                    datetime.timedelta(milliseconds=sum(self.average_time))
+                )[:-3]
+                longest_time_index = 0
+                quickest_time_index = 0
+                temp_longest_time_value = 0
+                temp_quickest_time_value = 999999999999999
+                print(self.average_time)
+                for i, time_m in enumerate(self.average_time):
+                    print(str(datetime.timedelta(milliseconds=time_m))[:-3])
+                    if temp_longest_time_value < time_m:
+                        longest_time_index = i
+                        temp_longest_time_value = time_m
+                    if temp_quickest_time_value > time_m:
+                        quickest_time_index = i
+                        temp_quickest_time_value = time_m
+                quickest_time = str(
+                    datetime.timedelta(
+                        milliseconds=self.average_time[quickest_time_index]
+                    )
+                )[:-3]
+                longest_time = str(
+                    datetime.timedelta(
+                        milliseconds=self.average_time[longest_time_index]
+                    )
+                )[:-3]
                 reply = QMessageBox.information(
                     self,
-                    f"You average score for {self.game_limit} games.",
-                    f"Your average scores for {self.game_limit} games is:\n\nAverage Moves: {int(sum(self.average_score) / float(len(self.average_score)))}\nAverage Time: {str(average_time)}\n\nTotal Moves: {int(sum(self.average_score))}\nTotal Time: {str(datetime.timedelta(seconds=int(sum(self.average_time))))}",
+                    f"Your score for {self.game_limit} games.",
+                    f"""Your scores for {self.game_limit} games is:
+                    
+Average Moves: {int(sum(self.average_score) / float(len(self.average_score)))}
+Average Time: {average_time}
+
+Quickest Time: {quickest_time}
+With {self.average_score[quickest_time_index]} Moves.
+
+Longest Time: {longest_time}
+With {self.average_score[longest_time_index]} Moves.
+
+Total Moves: {int(sum(self.average_score))}
+Total Time: {total_time}
+""",
                     QMessageBox.Ok,
                     QMessageBox.Ok,
                 )
                 self.average_score.clear()
                 self.average_time.clear()
                 self.currently_played = 0
+
+                self.setWindowTitle(f"Flip {self.currently_played}/{self.game_limit}")
             if self.show_play_again_dialog == False:
                 reply = QMessageBox.question(
                     self,
@@ -416,7 +458,7 @@ class Ui(QMainWindow):
 
     def save_scores(self):
         try:
-            record_time = int(
+            record_time = float(
                 JSON_CONTENTS["records"][0][f"{self.grid_size_y}x{self.grid_size_x}"][
                     0
                 ]["Time"]
