@@ -442,9 +442,10 @@ QToolBar::separator:vertical
 QPushButton
 {
 	color: silver;
-	background-color: QLinearGradient(
+	background-color: #302F2F;
+	/* background-color: QLinearGradient(
 		x1: 0, y1: 1, x2: 0, y2: 0,stop: 0 #302F2F, stop: 1 #484846
-	);
+	); */
 	border-width: 1px;
 	border-color: #4A4949;
 	border-style: solid;
@@ -473,10 +474,10 @@ QPushButton:disabled
 
 QPushButton:checked{
     
-	background-color: QLinearGradient(
+	/* background-color: QLinearGradient(
 		x1: 0, y1: 1, x2: 0, y2: 0,stop: 0 #1f77a0, stop: 1 #1f66a0
-	);
-    /* background-color: #1f77a0; */
+	); */
+    background-color: #1f77a0;
     /* border: 1px solid #6A6969; */
 }
 
@@ -551,7 +552,8 @@ QComboBox::down-arrow:focus
 
 QPushButton:pressed
 {
-	background-color: QLinearGradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #302F2F, stop: 1 #484846);
+	background-color: #484846;
+	/* background-color: QLinearGradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #302F2F, stop: 1 #484846); */
 }
 
 QAbstractSpinBox {
