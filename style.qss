@@ -30,7 +30,7 @@ QToolTip
 QWidget
 {
 	color: silver;
-	background-color: #302F2F;
+    background-color: #1c1b1b;
 	selection-background-color:#78879b;
 	selection-color: black;
 }
@@ -99,10 +99,10 @@ QAbstractItemView
 	padding: 1px;
 }
 
-QWidget:focus, QMenuBar:focus
+/* QWidget:focus, QMenuBar:focus
 {
 	border: 1px solid rgba(48, 86, 111);
-}
+} */
 
 QTabWidget:focus, QCheckBox:focus
 {
