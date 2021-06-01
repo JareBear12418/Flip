@@ -443,11 +443,11 @@ QPushButton
 {
 	color: silver;
 	background-color: #302F2F;
+    border-color: #4A4949;
 	/* background-color: QLinearGradient(
 		x1: 0, y1: 1, x2: 0, y2: 0,stop: 0 #302F2F, stop: 1 #484846
 	); */
 	border-width: 1px;
-	border-color: #4A4949;
 	border-style: solid;
 	padding-top: 5px;
 	padding-bottom: 5px;

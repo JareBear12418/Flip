@@ -238,7 +238,9 @@ class Ui(QMainWindow):
                 button.setFixedSize(self.button_size, self.button_size)
                 button.setFlat(True)
                 button.setCheckable(True)
-                button.clicked.connect(partial(self.button_clicked, x, y))
+                button.clicked.connect(
+                    partial(self.button_clicked, x, y, change_button_state=False)
+                )
                 button.setChecked(True)
                 # button.setMinimumSize(100,100)
                 # button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -295,12 +297,20 @@ class Ui(QMainWindow):
             for y in range(self.grid_size_y):
                 is_checked = random.random() < perc_to_press
                 if is_checked:
+
+                    loop = QEventLoop()
+                    QTimer.singleShot(10, loop.quit)
+                    loop.exec_()
                     self.button_clicked(x, y, automated_press=True)
         perc_to_press = random.uniform(0.35, 0.65)
         for y in range(self.grid_size_y):
             for x in range(self.grid_size_x):
                 is_checked = random.random() < perc_to_press
                 if is_checked:
+
+                    loop = QEventLoop()
+                    QTimer.singleShot(10, loop.quit)
+                    loop.exec_()
                     self.button_clicked(x, y, automated_press=True)
 
         self.curr_time = QtCore.QTime(00, 00, 00)
@@ -327,61 +337,82 @@ class Ui(QMainWindow):
         try:
             last_x = self.move_history[-1][0]
             last_y = self.move_history[-1][1]
-            self.button_clicked(last_x, last_y, False)
+            self.button_clicked(last_x, last_y, save_move=False)
             del self.move_history[-1]
         except IndexError:
             self.check_win()
 
-    @pyqtSlot()
-    def button_clicked(self, x, y, save_move=True, automated_press=False):
+    # @pyqtSlot()
+    def button_clicked(
+        self,
+        x,
+        y,
+        change_button_state=False,
+        change_to=True,
+        save_move=True,
+        automated_press=False,
+    ):
         if not automated_press:
             self.current_moves += 1
         self.update_time_label()
         if save_move:
             self.move_history.append([x, y])
-        # center
-        if self.grid_run_time[x][y] == True:
-            self.grid_run_time[x][y] = False
-            self.button_array_list[x][y].setChecked(False)
+        if not change_button_state:
+            # center
+            if self.grid_run_time[x][y] == True:
+                self.grid_run_time[x][y] = False
+                self.button_array_list[x][y].setChecked(False)
+            else:
+                self.grid_run_time[x][y] = True
+                self.button_array_list[x][y].setChecked(True)
+            # up
+            if not y + 1 >= self.grid_size_y:
+                if self.grid_run_time[x][y + 1] == True:
+                    self.grid_run_time[x][y + 1] = False
+                    self.button_array_list[x][y + 1].setChecked(False)
+                else:
+                    self.grid_run_time[x][y + 1] = True
+                    self.button_array_list[x][y + 1].setChecked(True)
+            # down
+            if not y < 1:
+                if self.grid_run_time[x][y - 1] == True:
+                    self.grid_run_time[x][y - 1] = False
+                    self.button_array_list[x][y - 1].setChecked(False)
+                else:
+                    self.grid_run_time[x][y - 1] = True
+                    self.button_array_list[x][y - 1].setChecked(True)
+
+            # left
+            if not x < 1:
+                if self.grid_run_time[x - 1][y] == True:
+                    self.grid_run_time[x - 1][y] = False
+                    self.button_array_list[x - 1][y].setChecked(False)
+                else:
+                    self.grid_run_time[x - 1][y] = True
+                    self.button_array_list[x - 1][y].setChecked(True)
+
+            # right
+            if not x + 1 >= self.grid_size_x:
+                if self.grid_run_time[x + 1][y] == True:
+                    self.grid_run_time[x + 1][y] = False
+                    self.button_array_list[x + 1][y].setChecked(False)
+                else:
+                    self.grid_run_time[x + 1][y] = True
+                    self.button_array_list[x + 1][y].setChecked(True)
+        if change_button_state:
+            self.grid_run_time[x][y] = change_to
+            self.button_array_list[x][y].setChecked(change_to)
+            if change_to:
+                self.button_array_list[x][y].setStyleSheet(
+                    "background-color: #25a01f; border-color: #4A4949;"
+                )
+            else:
+                self.button_array_list[x][y].setStyleSheet(
+                    "background-color: #302F2F; border-color: #4A4949;"
+                )
+
         else:
-            self.grid_run_time[x][y] = True
-            self.button_array_list[x][y].setChecked(True)
-        # up
-        if not y + 1 >= self.grid_size_y:
-            if self.grid_run_time[x][y + 1] == True:
-                self.grid_run_time[x][y + 1] = False
-                self.button_array_list[x][y + 1].setChecked(False)
-            else:
-                self.grid_run_time[x][y + 1] = True
-                self.button_array_list[x][y + 1].setChecked(True)
-        # down
-        if not y < 1:
-            if self.grid_run_time[x][y - 1] == True:
-                self.grid_run_time[x][y - 1] = False
-                self.button_array_list[x][y - 1].setChecked(False)
-            else:
-                self.grid_run_time[x][y - 1] = True
-                self.button_array_list[x][y - 1].setChecked(True)
-
-        # left
-        if not x < 1:
-            if self.grid_run_time[x - 1][y] == True:
-                self.grid_run_time[x - 1][y] = False
-                self.button_array_list[x - 1][y].setChecked(False)
-            else:
-                self.grid_run_time[x - 1][y] = True
-                self.button_array_list[x - 1][y].setChecked(True)
-
-        # right
-        if not x + 1 >= self.grid_size_x:
-            if self.grid_run_time[x + 1][y] == True:
-                self.grid_run_time[x + 1][y] = False
-                self.button_array_list[x + 1][y].setChecked(False)
-            else:
-                self.grid_run_time[x + 1][y] = True
-                self.button_array_list[x + 1][y].setChecked(True)
-
-        self.check_win()
+            self.check_win()
 
         if (
             not automated_press
@@ -429,6 +460,35 @@ class Ui(QMainWindow):
             self.saved_time = 0
             self.timer.stop()
             self.update_time_label()
+            # self.game_timer.stop()
+            for x in range(self.grid_size_x):
+                loop = QEventLoop()
+                QTimer.singleShot(35, loop.quit)
+                loop.exec_()
+                for y in range(self.grid_size_y):
+                    self.button_clicked(
+                        x,
+                        y,
+                        change_button_state=True,
+                        change_to=True,
+                        automated_press=True,
+                    )
+            for x in range(self.grid_size_x):
+                loop = QEventLoop()
+                QTimer.singleShot(35, loop.quit)
+                loop.exec_()
+                for y in range(self.grid_size_y):
+                    self.button_clicked(
+                        x,
+                        y,
+                        change_button_state=True,
+                        change_to=False,
+                        automated_press=True,
+                    )
+            loop = QEventLoop()
+            QTimer.singleShot(175, loop.quit)
+            loop.exec_()
+            # self.game_timer.start(1000)
             if self.currently_played == self.game_limit:
                 self.game_timer.stop()
                 average_time = str(
@@ -465,6 +525,7 @@ class Ui(QMainWindow):
                         milliseconds=self.average_time[longest_time_index]
                     )
                 )[:-3]
+
                 reply = QMessageBox.information(
                     self,
                     f"Your score for {self.game_limit} games.",
