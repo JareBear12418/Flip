@@ -11,7 +11,12 @@ from stat import S_IREAD, S_IRGRP, S_IROTH
 import json
 import datetime
 from io import BytesIO
-import win32clipboard  # pip install pywin32
+try:
+    import win32clipboard  # pip install pywin32
+except ImportError:
+    pass
+import subprocess
+import klembord
 from PIL import Image
 
 JSON_FILE: str = "data.json"
@@ -653,6 +658,7 @@ Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000),
                 #     QMessageBox.Ok | QMessageBox.Save | QMessageBox.Apply,
                 #     QMessageBox.Save,
                 # )
+                image_file_name = f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png"
                 if messageBox.clickedButton() == btnSave:
                     try:
                         if not os.path.exists("Saves/"):
@@ -670,29 +676,38 @@ Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000),
                         # directory already exists
                         pass
                     messageBox.grab().save(
-                        f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png",
+                        f"{image_file_name}",
                         "png",
                     )
                 elif messageBox.clickedButton() == btnScreenshot:
                     messageBox.grab().save(
-                        f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png",
+                        f"{image_file_name}",
                         "png",
                     )
                     image = Image.open(
-                        f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                        f"{image_file_name}",
                     )
+                    memory = BytesIO()
+                    try: # Windows
+                        image.convert("RGB").save(memory, "BMP")
+                        data = memory.getvalue()[14:]
+                        win32clipboard.OpenClipboard()
+                        win32clipboard.EmptyClipboard()
+                        win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
+                        win32clipboard.CloseClipboard()
+                    except: # Linux
+                        image.save(memory, format="png")
 
-                    output = BytesIO()
-                    image.convert("RGB").save(output, "BMP")
-                    data = output.getvalue()[14:]
-                    output.close()
-                    win32clipboard.OpenClipboard()
-                    win32clipboard.EmptyClipboard()
-                    win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
-                    win32clipboard.CloseClipboard()
+                        output = subprocess.Popen(("xclip", "-selection", "clipboard", "-t", f"{image_file_name}", "-i"), 
+                                                stdin=subprocess.PIPE)
+                        # write image to stdin
+                        output.stdin.write(memory.getvalue())
+                        output.stdin.close()
+                        klembord.set({f'{image_file_name}': memory.getvalue()})
+                    memory.close()
                     try:
                         os.remove(
-                            f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                            f"{image_file_name}"
                         )
                     except:
                         pass
