@@ -2,11 +2,12 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5 import QtWidgets, uic, QtCore
-import sys
+import sys, os
 from functools import partial
 import random
 import sprites  # loads spritesheet.png file
 from pprint import pprint as print
+from stat import S_IREAD, S_IRGRP, S_IROTH
 import json
 import datetime
 
@@ -79,7 +80,7 @@ class Ui(QMainWindow):
         self.pressed_first_button = False
 
         self.currently_played: int = 0
-        self.game_limit: int = 10
+        self.game_limit: int = 1
         self.average_time: list = []
         self.average_score: list = []
 
@@ -525,11 +526,7 @@ class Ui(QMainWindow):
                         milliseconds=self.average_time[longest_time_index]
                     )
                 )[:-3]
-
-                reply = QMessageBox.information(
-                    self,
-                    f"Your score for {self.game_limit} games.",
-                    f"""Your scores for {self.game_limit} games is:
+                text = f"""Your scores for {self.game_limit} games is:
                     
 Average Moves: {int(sum(self.average_score) / float(len(self.average_score)))}
 Average Time: {average_time}
@@ -546,10 +543,23 @@ Overall game time: {total_game_time}
 Total Moves: {int(sum(self.average_score))}
 
 Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000), 2)}
-""",
-                    QMessageBox.Ok,
+"""
+                report_dialog = QMessageBox.information(
+                    self,
+                    f"Your score for {self.game_limit} games.",
+                    text,
+                    QMessageBox.Ok | QMessageBox.Save,
                     QMessageBox.Ok,
                 )
+                if report_dialog == QMessageBox.Save:
+                    try:
+                        if not os.path.exists('Saves/'): os.makedirs("Saves/")
+                        with open(f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H:%M:%S')}.txt", "w") as text_file:
+                            text_file.write(text)
+                        os.chmod(f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H:%M:%S')}.txt", S_IREAD|S_IRGRP|S_IROTH)
+                    except FileExistsError:
+                        # directory already exists
+                        pass
                 self.average_score.clear()
                 self.average_time.clear()
                 self.currently_played = 0
