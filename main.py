@@ -10,9 +10,46 @@ from pprint import pprint as print
 from stat import S_IREAD, S_IRGRP, S_IROTH
 import json
 import datetime
+from io import BytesIO
+import win32clipboard  # pip install pywin32
+from PIL import Image
 
 JSON_FILE: str = "data.json"
 JSON_CONTENTS = None
+
+
+class ReportDialog(QDialog):
+    def __init__(self, parent=None):
+        super(ReportDialog, self).__init__(parent)
+
+        self.setWindowIcon(QIcon("im.png"))
+        self.setWindowTitle("MessageBox")
+        self.setFixedSize(400, 300)
+        self.initUI()
+
+    def initUI(self):
+        button = QPushButton("MessageBox Question", self)
+        button.move(50, 60)
+        button.clicked.connect(self.onClicked)
+
+    def onClicked(self):
+        messageBox = QMessageBox(self)
+        messageBox.setWindowIcon(QIcon("Ok.png"))
+        messageBox.setWindowTitle("Options")
+        messageBox.setIcon(QMessageBox.Question)
+        messageBox.setText("Question")
+        messageBox.setInformativeText("Which option do you choose?")
+
+        buttonoptionA = messageBox.addButton("optionA", QMessageBox.YesRole)
+        buttonoptionB = messageBox.addButton("optionB", QMessageBox.AcceptRole)
+        messageBox.setDefaultButton(buttonoptionA)
+
+        messageBox.exec_()
+
+        if messageBox.clickedButton() == buttonoptionA:
+            QMessageBox.information(self, "Information", "Click Buiion: optionA")
+        elif messageBox.clickedButton() == buttonoptionB:
+            QMessageBox.information(self, "Information", "Click Buiion: optionB")
 
 
 class Ui(QMainWindow):
@@ -36,6 +73,9 @@ class Ui(QMainWindow):
         self.actionAsk_to_play_again_dialog.setChecked(
             JSON_CONTENTS["settings"][0]["Quick Play"][0] == "True"
         )
+        self.actionAsk_to_play_again_dialog.setStatusTip(
+            'Enable to prompt "Play Again" Dialog after each game.'
+        )
         self.actionAsk_to_play_again_dialog.triggered.connect(
             self.togglePlayAgainDialog
         )
@@ -43,9 +83,14 @@ class Ui(QMainWindow):
         self.show_play_again_dialog = JSON_CONTENTS["settings"][0]["Quick Play"][0]
 
         self.actionShow_Tutorial.triggered.connect(self.toggleTutorial)
+        self.actionShow_Tutorial.setStatusTip(
+            "Prompts dialog at startup explaining how to play the game."
+        )
 
         self.action_Restart.triggered.connect(self.restart_game)
-
+        self.action_Restart.setStatusTip(
+            "Restarts current game. All scores and times will be reset to zero."
+        )
         self.grid_size_x: int = 4
         self.grid_size_y: int = 4
         self.button_size: int = 128
@@ -93,6 +138,7 @@ class Ui(QMainWindow):
         self.update_grid_sizes()
 
     def restart_game(self):
+        self.setWindowTitle(f"Flip {self.currently_played}/{self.game_limit}")
         self.pressed_first_button = False
         self.average_time.clear()
         self.average_score.clear()
@@ -139,7 +185,7 @@ class Ui(QMainWindow):
                     JSON_CONTENTS["records"][0][f"{grid_size}"][0]["Moves"]
                 )
                 grid.setStatusTip(
-                    f"Record Time: {str(datetime.timedelta(seconds=record_time))}    Record Moves: {record_moves}"
+                    f"Record Time: {str(datetime.timedelta(milliseconds=record_time))[:-3]}    Record Moves: {record_moves}"
                 )
             except ValueError:
                 grid.setStatusTip(f"Record Time: Undfined    Record Moves: Undfined")
@@ -153,17 +199,26 @@ class Ui(QMainWindow):
     def set_quick_grid_size(self, x: int, y: int):
         self.grid_size_x = x
         self.grid_size_y = y
-        self.generate_board()
+        self.restart_game()
 
     def set_new_grid_size(self):
         text, okPressed = QInputDialog.getText(
             self, "Grid Size", "Formula: X x Y. Etc 4x4 or 6x3.", QLineEdit.Normal, ""
         )
-        if okPressed and text != "":
-            text = text.replace(" ", "").split("x")
-            self.grid_size_x = int(text[0])
-            self.grid_size_y = int(text[1])
-            self.generate_board()
+        try:
+            if okPressed and text != "":
+                text = text.replace(" ", "").split("x")
+                self.grid_size_x = int(text[0])
+                self.grid_size_y = int(text[1])
+                self.restart_game()
+        except:
+            QMessageBox.critical(
+                self,
+                "Error",
+                "Invalid input",
+                QMessageBox.Ok,
+                QMessageBox.Ok,
+            )
         self.update_grid_sizes()
 
     def update_game_time(self):
@@ -213,17 +268,17 @@ class Ui(QMainWindow):
                 f"Grid: {self.grid_size_y}x{self.grid_size_x}\nCurrent time: {self.curr_time.hour():02d}:{self.curr_time.minute():02d}:{self.curr_time.second():02d}    Moves: {self.current_moves}"
             )
 
-    def generate_board(self):
+    def generate_board(self):  # sourcery no-metrics
         self.pressed_first_button = False
 
         self.clearLayout(self.gridLayout)
         screen = app.primaryScreen()
         height = screen.availableGeometry().height()
         width = screen.availableGeometry().width()
-        max_height = height // self.grid_size_y // 2
-        max_width = width // self.grid_size_x // 2
-        self.button_size = min(max_height, max_width)
-        self.font_size = self.button_size // 2
+        max_height = height / self.grid_size_y / 1.6
+        max_width = width / self.grid_size_x / 1.6
+        self.button_size = int(min(max_height, max_width))
+        self.font_size = int(self.button_size // 2)
         self.move_history = []
         self.grid_run_time = [
             [None for y in range(self.grid_size_y)] for x in range(self.grid_size_x)
@@ -296,6 +351,9 @@ class Ui(QMainWindow):
         perc_to_press = random.uniform(0.35, 0.65)
         for x in range(self.grid_size_x):
             for y in range(self.grid_size_y):
+                self.button_array_list[x][y].setStyleSheet(
+                    "QPushButton:checked{background-color: #a09a1e; border-color: #4A4949;}QPushButton{background-color: #302F2F; border-color: #4A4949;}QPushButton:hover{border: 1px solid #78879b; color: silver;}"
+                )
                 is_checked = random.random() < perc_to_press
                 if is_checked:
 
@@ -314,6 +372,11 @@ class Ui(QMainWindow):
                     loop.exec_()
                     self.button_clicked(x, y, automated_press=True)
 
+        for y in range(self.grid_size_y):
+            for x in range(self.grid_size_x):
+                self.button_array_list[x][y].setStyleSheet(
+                    "QPushButton:checked{background-color: #1f77a0; border-color: #4A4949;}QPushButton{background-color: #302F2F; border-color: #4A4949;}QPushButton:hover{border: 1px solid #78879b; color: silver;}"
+                )
         self.curr_time = QtCore.QTime(00, 00, 00)
         self.current_moves = 0
         self.saved_time = 0
@@ -343,7 +406,14 @@ class Ui(QMainWindow):
         except IndexError:
             self.check_win()
 
-    # @pyqtSlot()
+    def update_button_status_tip(self):
+        for y in range(self.grid_size_y):
+            for x in range(self.grid_size_x):
+                self.button_array_list[x][y].setStatusTip(
+                    f"x: {y+1}, y: {x+1}, State: {self.button_array_list[x][y].isChecked()}"
+                )
+
+    @pyqtSlot()
     def button_clicked(
         self,
         x,
@@ -352,13 +422,18 @@ class Ui(QMainWindow):
         change_to=True,
         save_move=True,
         automated_press=False,
-    ):
+    ):  # sourcery no-metrics
+
         if not automated_press:
             self.current_moves += 1
         self.update_time_label()
         if save_move:
             self.move_history.append([x, y])
         if not change_button_state:
+            self.button_array_list[x][y].setStatusTip(
+                f"x: {x+1}, y: {y+1}, State: {self.button_array_list[x][y].isChecked()}"
+            )
+
             # center
             if self.grid_run_time[x][y] == True:
                 self.grid_run_time[x][y] = False
@@ -425,6 +500,7 @@ class Ui(QMainWindow):
             self.timer.start(1000)
             self.time()
             self.pressed_first_button = True
+        self.update_button_status_tip()
 
     def keyPressEvent(self, event):
         # if event.key() == QtCore.Qt.Key_N:
@@ -434,7 +510,7 @@ class Ui(QMainWindow):
         else:
             super().keyPressEvent(event)
 
-    def check_win(self):
+    def check_win(self):  # sourcery no-metrics
         count = 0
         for row in self.grid_run_time:
             for col in row:
@@ -543,22 +619,82 @@ Overall game time: {total_game_time}
 Total Moves: {int(sum(self.average_score))}
 
 Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000), 2)}
+
 """
-                report_dialog = QMessageBox.information(
-                    self,
-                    f"Your score for {self.game_limit} games.",
-                    text,
-                    QMessageBox.Ok | QMessageBox.Save,
-                    QMessageBox.Ok,
+
+                messageBox = QMessageBox(self)
+                # messageBox.setWindowIcon(QIcon("Ok.png"))
+                messageBox.setIcon(QMessageBox.Information)
+                messageBox.setWindowTitle(f"Your scores for {self.game_limit} games.")
+                messageBox.setInformativeText(text)
+
+                btnOk = messageBox.addButton("Ok", QMessageBox.YesRole)
+                btnSave = messageBox.addButton("Save", QMessageBox.AcceptRole)
+                btnScreenshot = messageBox.addButton(
+                    "Copy Screenshot", QMessageBox.AcceptRole
                 )
-                if report_dialog == QMessageBox.Save:
+                messageBox.setDefaultButton(btnOk)
+
+                messageBox.exec_()
+
+                # if messageBox.clickedButton() == btnSave:
+                #     QMessageBox.information(
+                #         self, "Information", "Click Buiion: optionA"
+                #     )
+                # elif messageBox.clickedButton() == buttonoptionB:
+                #     QMessageBox.information(
+                #         self, "Information", "Click Buiion: optionB"
+                #     )
+
+                # report_dialog = QMessageBox.information(
+                #     self,
+                #     f"Your score for {self.game_limit} games.",
+                #     text,
+                #     QMessageBox.Ok | QMessageBox.Save | QMessageBox.Apply,
+                #     QMessageBox.Save,
+                # )
+                if messageBox.clickedButton() == btnSave:
                     try:
-                        if not os.path.exists('Saves/'): os.makedirs("Saves/")
-                        with open(f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H:%M:%S')}.txt", "w") as text_file:
+                        if not os.path.exists("Saves/"):
+                            os.makedirs("Saves/")
+                        with open(
+                            f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt",
+                            "w",
+                        ) as text_file:
                             text_file.write(text)
-                        os.chmod(f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H:%M:%S')}.txt", S_IREAD|S_IRGRP|S_IROTH)
+                        os.chmod(
+                            f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt",
+                            S_IREAD | S_IRGRP | S_IROTH,
+                        )
                     except FileExistsError:
                         # directory already exists
+                        pass
+                    messageBox.grab().save(
+                        f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png",
+                        "png",
+                    )
+                elif messageBox.clickedButton() == btnScreenshot:
+                    messageBox.grab().save(
+                        f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png",
+                        "png",
+                    )
+                    image = Image.open(
+                        f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                    )
+
+                    output = BytesIO()
+                    image.convert("RGB").save(output, "BMP")
+                    data = output.getvalue()[14:]
+                    output.close()
+                    win32clipboard.OpenClipboard()
+                    win32clipboard.EmptyClipboard()
+                    win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
+                    win32clipboard.CloseClipboard()
+                    try:
+                        os.remove(
+                            f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                        )
+                    except:
                         pass
                 self.average_score.clear()
                 self.average_time.clear()
@@ -575,11 +711,16 @@ Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000),
                     self,
                     "Play again?",
                     "Do you want to play again?",
-                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes | QMessageBox.Retry | QMessageBox.Close,
                     QMessageBox.Yes,
                 )
-                if reply == QMessageBox.Yes:
+                if reply == QMessageBox.Yes or reply not in [
+                    QMessageBox.Retry,
+                    QMessageBox.Close,
+                ]:
                     self.generate_board()
+                elif reply == QMessageBox.Retry:
+                    self.restart_game()
                 else:
                     self.close()
             else:
