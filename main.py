@@ -1,60 +1,29 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
-from PyQt5 import QtWidgets, uic, QtCore
+from PyQt5 import uic, QtCore
 import sys, os
 from functools import partial
 import random
 import sprites  # loads spritesheet.png file
 from pprint import pprint as print
 from stat import S_IREAD, S_IRGRP, S_IROTH
+from stat import S_IWUSR  # Need to add this import to the ones above
 import json
 import datetime
+import re
 from io import BytesIO
+import zipfile
+
 try:
     import win32clipboard  # pip install pywin32
 except ImportError:
     pass
 import subprocess
-import klembord
 from PIL import Image
 
 JSON_FILE: str = "data.json"
 JSON_CONTENTS = None
-
-
-class ReportDialog(QDialog):
-    def __init__(self, parent=None):
-        super(ReportDialog, self).__init__(parent)
-
-        self.setWindowIcon(QIcon("im.png"))
-        self.setWindowTitle("MessageBox")
-        self.setFixedSize(400, 300)
-        self.initUI()
-
-    def initUI(self):
-        button = QPushButton("MessageBox Question", self)
-        button.move(50, 60)
-        button.clicked.connect(self.onClicked)
-
-    def onClicked(self):
-        messageBox = QMessageBox(self)
-        messageBox.setWindowIcon(QIcon("Ok.png"))
-        messageBox.setWindowTitle("Options")
-        messageBox.setIcon(QMessageBox.Question)
-        messageBox.setText("Question")
-        messageBox.setInformativeText("Which option do you choose?")
-
-        buttonoptionA = messageBox.addButton("optionA", QMessageBox.YesRole)
-        buttonoptionB = messageBox.addButton("optionB", QMessageBox.AcceptRole)
-        messageBox.setDefaultButton(buttonoptionA)
-
-        messageBox.exec_()
-
-        if messageBox.clickedButton() == buttonoptionA:
-            QMessageBox.information(self, "Information", "Click Buiion: optionA")
-        elif messageBox.clickedButton() == buttonoptionB:
-            QMessageBox.information(self, "Information", "Click Buiion: optionB")
 
 
 class Ui(QMainWindow):
@@ -79,7 +48,7 @@ class Ui(QMainWindow):
             JSON_CONTENTS["settings"][0]["Quick Play"][0] == "True"
         )
         self.actionAsk_to_play_again_dialog.setStatusTip(
-            'Enable to prompt "Play Again" Dialog after each game.'
+            'Prompts "Play Again?" Dialog after each game.'
         )
         self.actionAsk_to_play_again_dialog.triggered.connect(
             self.togglePlayAgainDialog
@@ -130,7 +99,7 @@ class Ui(QMainWindow):
         self.pressed_first_button = False
 
         self.currently_played: int = 0
-        self.game_limit: int = 1
+        self.game_limit: int = 10
         self.average_time: list = []
         self.average_score: list = []
 
@@ -193,7 +162,7 @@ class Ui(QMainWindow):
                     f"Record Time: {str(datetime.timedelta(milliseconds=record_time))[:-3]}    Record Moves: {record_moves}"
                 )
             except ValueError:
-                grid.setStatusTip(f"Record Time: Undfined    Record Moves: Undfined")
+                grid.setStatusTip(f"Record Time: Undefined    Record Moves: Undefined")
             grid.triggered.connect(partial(self.set_quick_grid_size, y, x))
             self.menuGrid_Size.addAction(grid)
 
@@ -208,22 +177,24 @@ class Ui(QMainWindow):
 
     def set_new_grid_size(self):
         text, okPressed = QInputDialog.getText(
-            self, "Grid Size", "Formula: X x Y. Etc 4x4 or 6x3.", QLineEdit.Normal, ""
+            self,
+            "Grid Size",
+            "Format: X×Y.\nEx: '10×10' or '6×3'.",
+            QLineEdit.Normal,
+            "2x2",
         )
-        try:
-            if okPressed and text != "":
+        if okPressed and text != "":
+
+            regex = r"\b([2-9]|10)x([2-9]|10)\b"
+
+            if re.match(regex, text):
                 text = text.replace(" ", "").split("x")
                 self.grid_size_x = int(text[0])
                 self.grid_size_y = int(text[1])
                 self.restart_game()
-        except:
-            QMessageBox.critical(
-                self,
-                "Error",
-                "Invalid input",
-                QMessageBox.Ok,
-                QMessageBox.Ok,
-            )
+            else:
+                QMessageBox.critical(self, "Error", f'"{text}" Is an invalid input.')
+                self.set_new_grid_size()
         self.update_grid_sizes()
 
     def update_game_time(self):
@@ -262,7 +233,7 @@ class Ui(QMainWindow):
                     str(self.grid_size_y)
                     + "x"
                     + str(self.grid_size_x): [
-                        {"Moves": "Undfined", "Time": "Undefined"}
+                        {"Moves": "Undefined", "Time": "Undefined"}
                     ]
                 }
             )
@@ -435,10 +406,6 @@ class Ui(QMainWindow):
         if save_move:
             self.move_history.append([x, y])
         if not change_button_state:
-            self.button_array_list[x][y].setStatusTip(
-                f"x: {x+1}, y: {y+1}, State: {self.button_array_list[x][y].isChecked()}"
-            )
-
             # center
             if self.grid_run_time[x][y] == True:
                 self.grid_run_time[x][y] = False
@@ -607,8 +574,8 @@ class Ui(QMainWindow):
                         milliseconds=self.average_time[longest_time_index]
                     )
                 )[:-3]
-                text = f"""Your scores for {self.game_limit} games is:
-                    
+                text = f"""Stats for Solving a {self.grid_size_y}x{self.grid_size_x} puzzle.
+
 Average Moves: {int(sum(self.average_score) / float(len(self.average_score)))}
 Average Time: {average_time}
 
@@ -625,6 +592,7 @@ Total Moves: {int(sum(self.average_score))}
 
 Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000), 2)}
 
+Date: {datetime.datetime.today().strftime('%B %d, %Y %I:%M:%S %p')}
 """
 
                 messageBox = QMessageBox(self)
@@ -658,57 +626,77 @@ Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000),
                 #     QMessageBox.Ok | QMessageBox.Save | QMessageBox.Apply,
                 #     QMessageBox.Save,
                 # )
-                image_file_name = f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                image_file_name = (
+                    f"{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+                )
+                text_file_name = (
+                    f"{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+                )
                 if messageBox.clickedButton() == btnSave:
                     try:
-                        if not os.path.exists("Saves/"):
-                            os.makedirs("Saves/")
+                        if not os.path.exists(
+                            os.path.dirname(os.path.realpath(__file__)) + "/Saves/"
+                        ):
+                            os.makedirs(
+                                os.path.dirname(os.path.realpath(__file__)) + "/Saves/"
+                            )
                         with open(
-                            f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt",
+                            f"{os.path.dirname(os.path.realpath(__file__))}/Saves/{text_file_name}",
                             "w",
                         ) as text_file:
                             text_file.write(text)
                         os.chmod(
-                            f"Saves/{datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')}.txt",
+                            f"{os.path.dirname(os.path.realpath(__file__))}/Saves/{text_file_name}",
                             S_IREAD | S_IRGRP | S_IROTH,
                         )
                     except FileExistsError:
                         # directory already exists
                         pass
                     messageBox.grab().save(
-                        f"{image_file_name}",
+                        f"{os.path.dirname(os.path.realpath(__file__))}/Saves/{image_file_name}",
                         "png",
+                    )
+                    self.compress(
+                        [image_file_name, text_file_name],
+                        f"{os.path.dirname(os.path.realpath(__file__))}/Saves/",
+                        datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S"),
                     )
                 elif messageBox.clickedButton() == btnScreenshot:
                     messageBox.grab().save(
-                        f"{image_file_name}",
+                        f"{os.path.dirname(os.path.realpath(__file__))}/Saves/{image_file_name}",
                         "png",
                     )
                     image = Image.open(
-                        f"{image_file_name}",
+                        f"{os.path.dirname(os.path.realpath(__file__))}/Saves/{image_file_name}",
                     )
                     memory = BytesIO()
-                    try: # Windows
+                    try:  # Windows
                         image.convert("RGB").save(memory, "BMP")
                         data = memory.getvalue()[14:]
                         win32clipboard.OpenClipboard()
                         win32clipboard.EmptyClipboard()
                         win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
                         win32clipboard.CloseClipboard()
-                    except: # Linux
+                    except:  # TODO Linux doesnt work yet
                         image.save(memory, format="png")
 
-                        output = subprocess.Popen(("xclip", "-selection", "clipboard", "-t", f"{image_file_name}", "-i"), 
-                                                stdin=subprocess.PIPE)
+                        output = subprocess.Popen(
+                            (
+                                "xclip",
+                                "-selection",
+                                "clipboard",
+                                "-t",
+                                f"Saves/{image_file_name}",
+                                "-i",
+                            ),
+                            stdin=subprocess.PIPE,
+                        )
                         # write image to stdin
                         output.stdin.write(memory.getvalue())
                         output.stdin.close()
-                        klembord.set({f'{image_file_name}': memory.getvalue()})
                     memory.close()
                     try:
-                        os.remove(
-                            f"{image_file_name}"
-                        )
+                        os.remove(f"{image_file_name}")
                     except:
                         pass
                 self.average_score.clear()
@@ -740,6 +728,34 @@ Clicks Per Second: {round(sum(self.average_score)/(sum(self.average_time)/1000),
                     self.close()
             else:
                 self.generate_board()
+
+    def compress(self, file_names, save_location, zip_name):
+        # Select the compression mode ZIP_DEFLATED for compression
+        # or zipfile.ZIP_STORED to just store the file
+        compression = zipfile.ZIP_DEFLATED
+
+        # create the zip file first parameter path/name, second mode
+        zf = zipfile.ZipFile(f"{save_location}/{zip_name}.zip", mode="w")
+        try:
+            for file_name in file_names:
+                # Add file to the zip file
+                # first parameter file to zip, second filename in zip
+                zf.write(
+                    save_location + file_name,
+                    file_name,
+                    compress_type=compression,
+                )
+                if file_name.endswith(".txt"):
+                    os.chmod(
+                        save_location + file_name, S_IWUSR | S_IREAD
+                    )  # This makes the file read/write for the owner
+                os.remove(save_location + file_name)
+
+        except FileNotFoundError as e:
+            print(f"An error occurred {e}")
+        finally:
+            # Don't forget to close the file!
+            zf.close()
 
     def save_scores(self):
         try:

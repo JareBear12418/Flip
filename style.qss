@@ -30,10 +30,15 @@ QToolTip
 QWidget
 {
 	color: silver;
-    background-color: #1c1b1b;
+	background-color: #1c1b1b;
 	selection-background-color:#78879b;
 	selection-color: black;
 }
+QMainWindow{
+	background-color: qlineargradient(spread:reflect, x1:0, y1:0, x2:0, y2:1 stop:0 #141414, stop:1 #1a1818);
+
+}
+
 
 QWidget:item:selected
 {
@@ -317,7 +322,6 @@ QSizeGrip {
 	height: 12px;
 }
 
-
 QMainWindow::separator
 {
 	background-color: #302F2F;
@@ -453,7 +457,7 @@ QPushButton
 	padding-bottom: 5px;
 	padding-left: 5px;
 	padding-right: 5px;
-	border-radius: 5px;
+	border-radius: 7px;
 }
 
 QPushButton:disabled
@@ -464,8 +468,8 @@ QPushButton:disabled
 	border-width: 1px;
 	border-color: #3A3939;
 	border-style: solid;
-	padding-top: 5px;
-	padding-bottom: 5px;
+	padding-top: 10px;
+	padding-bottom: 10px;
 	padding-left: 10px;
 	padding-right: 10px;
 	/*border-radius: 3px;*/
